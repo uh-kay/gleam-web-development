@@ -294,3 +294,114 @@ fn argus_error_to_string(err: argus.HashError) {
 We're going to turn most error types into string to make it easy to log and to send error response to client. We send most error to the client except some internal error because it might contain sensitive information that can compromise server's security.
 
 ### List Snippets
+
+First, we'll create the model layer:
+
+```gleam
+// server/src/server/model/snippets.gleam
+pub fn list_snippets(ctx: context.Context) {
+  // here we hardcode the limit and offset but we'll change it later
+  case sql.get_snippets(20, 0) |> db.query(ctx.db, _) {
+    // return not found error if DB returns 0 row 
+    Ok(pog.Returned(0, _)) -> Error(errors.NotFound("snippet"))
+    Ok(rows) ->
+      Ok({
+        rows.rows // take List(Row) and map into List(Snippet)
+        |> list.map(fn(row: sql.GetSnippets) {
+          shared.Snippet(
+            row.id,
+            row.author,
+            row.title,
+            row.content,
+            row.expires_at,
+            row.updated_at,
+            row.created_at,
+          )
+        })
+      })
+    Error(err) -> Error(errors.DatabaseError(err))
+  }
+}
+```
+
+Next we'll write the handler:
+
+```gleam
+// server/srv/server/routes/snippets.gleam
+fn list_snippets(ctx: context.Context, req: wisp.Request) {
+  case snippets.list_snippets(ctx) {
+    Ok(snippets) -> {
+      snippets
+      |> json.array(shared.snippet_to_json) // turn List(Snippet) into JSON
+      |> helpers.json_response("snippets", 200)
+    }
+    Error(err) -> errors.handle_error(req, err)
+  }
+}
+```
+
+Not much to be discussed here, we create the model to map the rows into shared.Snippet type and we write the handler to return the list of snippets as JSON response.
+
+### Get Snippet
+
+We already seen how to return a list of snippets, but we would also need to return a snippet based on its id.
+
+```gleam
+// server/src/server/model/snippets.gleam
+pub fn get_snippet(
+  ctx: context.Context,
+  id: Int,
+) -> Result(shared.Snippet, errors.AppError) {
+  use snippet <- result.try(
+    sql.get_snippet(id)
+    |> db.query(ctx.db, _)
+    |> result.map_error(errors.DatabaseError),
+  )
+
+  // because it'll only return 1 row at most, we only get the first item
+  list.first(snippet.rows) 
+  |> result.replace_error(errors.NotFound("snippet")) // replace Error(Nil) with not found error
+  |> result.map(fn(row) {
+    shared.Snippet(
+      id: row.id,
+      author: row.author,
+      title: row.title,
+      content: row.content,
+      expires_at: row.expires_at,
+      updated_at: row.updated_at,
+      created_at: row.created_at,
+    )
+  })
+}
+
+// server/src/server/routes/snippets.gleam
+fn view_snippet(ctx: context.Context, req: wisp.Request, id: String) {
+  let result = {
+    use id <- result.try(parse_id(id))
+
+    snippets.get_snippet(ctx, id)
+  }
+
+  case result {
+    Ok(snippet) ->
+      snippet
+      |> shared.snippet_to_json
+      |> helpers.json_response("snippet", 200)
+    Error(err) ->
+      case err {
+        _ -> errors.handle_error(req, err)
+      }
+  }
+}
+
+// parse String id and turn it into Int
+fn parse_id(id: String) {
+  case int.parse(id) {
+    Ok(id) -> Ok(id)
+    Error(_) -> Error(errors.BadRequest("invalid id"))
+  }
+}
+```
+
+### Update Snippet
+

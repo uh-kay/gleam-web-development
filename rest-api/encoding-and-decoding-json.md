@@ -101,7 +101,7 @@ use email <- decode.field("email", decode.optional(decode.string))
 use email <- decode.optional_field("email", option.None, decode.optional(decode.string))
 ```
 
-`decode.optional_field()` takes three argument: the key as String, fallback, and the decoder. If the key is optional, we put string key as the first argument, fallback in second and map the decoded String into option.Some(String).
+`decode.optional_field()` takes three argument: the key as String, fallback, and the decoder. If the key is optional, we put string key as the first argument, option.None as fallback and map the decoded String into option.Some(String). Optionally, we can use String like "default@example.com" for the fallback.
 
 `decode.optional()` takes one argument, the decoder. It turns the decoded String into option.Option(String), which unwrap into None() and Some(String).
 
