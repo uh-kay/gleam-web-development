@@ -79,6 +79,32 @@ That's a lot of typing! Don't worry, you can use code action of your code editor
 
 <figure><img src="../.gitbook/assets/code_action.png" alt=""><figcaption><p>Gleam LSP Code Action</p></figcaption></figure>
 
+### Decoding Optional JSON
+
+Sometimes we want optional JSON field, to do this we have several option:
+
+```gleam
+// required
+// i.e. { "email": "test@example.com" }
+use email <- decode.field("email", decode.string)
+
+// key optional
+// i.e. { } or { "email": "test@example.com" }
+use email <- decode.optional_field("email", option.None, decode.map(decode.string, option.Some))
+
+// value optional
+// i.e. { "email": null } or { "email": "test@example.com" }
+use email <- decode.field("email", decode.optional(decode.string))
+
+// key and value optional
+// i.e. { } or { "email": null } or { "email": "test@example.com" }
+use email <- decode.optional_field("email", option.None, decode.optional(decode.string))
+```
+
+`decode.optional_field()` takes three argument: the key as String, fallback, and the decoder. If the key is optional, we put string key as the first argument, fallback in second and map the decoded String into option.Some(String).
+
+`decode.optional()` takes one argument, the decoder. It turns the decoded String into option.Option(String), which unwrap into None() and Some(String).
+
 ### Further Reading
 
 * Gleam Language Server docs: [https://gleam.run/language-server/](https://gleam.run/language-server/)
