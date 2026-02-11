@@ -298,7 +298,7 @@ We're going to turn most error types into string to make it easy to log and to s
 First, we'll create the model layer:
 
 ```gleam
-// server/src/server/model/snippets.gleam
+// server/src/server/models/snippets.gleam
 pub fn list_snippets(ctx: context.Context) {
   // here we hardcode the limit and offset but we'll change it later
   case sql.get_snippets(20, 0) |> db.query(ctx.db, _) {
@@ -347,7 +347,7 @@ Not much to be discussed here, we create the model to map the rows into shared.S
 We already seen how to return a list of snippets, but we would also need to return a snippet based on its id.
 
 ```gleam
-// server/src/server/model/snippets.gleam
+// server/src/server/models/snippets.gleam
 pub fn get_snippet(
   ctx: context.Context,
   id: Int,
@@ -405,3 +405,91 @@ fn parse_id(id: String) {
 
 ### Update Snippet
 
+```gleam
+// server/src/server/models/snippets.gleam
+pub fn update_snippet(
+  ctx: context.Context,
+  title: option.Option(String),
+  content: option.Option(String),
+  id: Int,
+) {
+  case title, content {
+    option.None, option.None ->
+      Error(errors.BadRequest("missing title and content"))
+    _, _ -> { // match all other case
+      sql.update_snippet(id, title, content)
+      |> db.exec(ctx.db, _)
+      |> result.map_error(errors.DatabaseError)
+    }
+  }
+}
+
+// server/src/server/routes/snippets.gleam
+type UpdateSnippet {
+  UpdateSnippet(title: option.Option(String), content: option.Option(String))
+}
+
+fn update_snippet_decoder() -> decode.Decoder(UpdateSnippet) {
+  // key is optional and value is optional, None is the fallback value
+  use title <- decode.optional_field(
+    "title",
+    option.None,
+    decode.map(decode.string, option.Some), // decode title into Option(String)
+  )
+  use content <- decode.optional_field(
+    "content",
+    option.None,
+    decode.map(decode.string, option.Some), // decode content into Option(String)
+  )
+  decode.success(UpdateSnippet(title:, content:))
+}
+
+fn update_snippet(ctx: context.Context, req: wisp.Request, id: String) {
+  use json <- wisp.require_json(req)
+
+  let result = {
+    use input <- result.try(
+      decode.run(json, update_snippet_decoder())
+      |> result.replace_error(errors.BadRequest("missing title and content")),
+    )
+
+    use id <- result.try(parse_id(id))
+
+    snippets.update_snippet(ctx, input.title, input.content, id)
+  }
+
+  case result {
+    Ok(_) -> helpers.message_response("snippet updated", 200)
+    Error(err) -> errors.handle_error(req, err)
+  }
+}
+```
+
+In update snippet handler, we want the title and content to be optional. When the user doesn't provide the title or content, it'll just set the old title or content.
+
+### Delete Snippet
+
+```gleam
+// server/src/server/models/snippets.gleam
+pub fn delete_snippet(ctx: context.Context, id: Int) {
+  sql.delete_snippet(id)
+  |> db.exec(ctx.db, _)
+  |> result.map_error(errors.DatabaseError)
+}
+
+// server/src/server/routes/snippets.gleam
+fn delete_snippet(ctx: context.Context, req: wisp.Request, id: String) {
+  let result = {
+    use id <- result.try(parse_id(id))
+
+    snippets.delete_snippet(ctx, id)
+  }
+
+  case result {
+    Ok(_) -> helpers.message_response("snippet deleted", 200)
+    Error(err) -> errors.handle_error(req, err)
+  }
+}
+```
+
+Nothing much to say so let's just test our endpoints!&#x20;

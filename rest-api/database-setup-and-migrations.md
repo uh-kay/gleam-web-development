@@ -152,9 +152,9 @@ from snippets
 where id = $1;
 
 -- name: UpdateSnippet :exec
-update snippets
-set title = coalesce($1, title), content = coalesce($2, content)
-where id = $3;
+UPDATE snippets
+SET title = COALESCE(sqlc.narg('title'), title), content = COALESCE(sqlc.narg('content'), content)
+WHERE id = $1;
 
 -- name: DeleteSnippet :exec
 delete from snippets where id = $1;
