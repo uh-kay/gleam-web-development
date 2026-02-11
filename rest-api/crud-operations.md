@@ -492,4 +492,36 @@ fn delete_snippet(ctx: context.Context, req: wisp.Request, id: String) {
 }
 ```
 
-Nothing much to say so let's just test our endpoints!&#x20;
+Nothing much to say so let's just test our endpoints!
+
+```
+$ curl --request POST \
+  --url http://localhost:8000/api/snippets \
+  --header 'content-type: application/json' \
+  --data '{
+  "title": "Hello world!",
+  "content": "The first snippet ever to be created.",
+  "ttl": 1
+}'
+{"message":"snippet created"}
+
+$ curl --request GET \
+  --url http://localhost:8000/api/snippets \
+{"snippets":[{"id":1,"author":1,"title":"Hello world!","content":"The first snippet ever to be created.","expires_at":1770816488,"updated_at":1770812888,"created_at":1770812888}]}
+
+$ curl --request GET \
+  --url http://localhost:8000/api/snippets/1
+{"snippet":{"id":2,"author":1,"title":"Hello world!","content":"The first snippet ever to be created.","expires_at":1770816488,"updated_at":1770812888,"created_at":1770812888}}
+
+$ curl --request PATCH \
+  --url http://localhost:8000/api/snippets/1 \
+  --header 'content-type: application/json' \
+  --data '{
+  "title": "Updated!"
+}'
+{"message":"snippet updated"}
+
+$ curl --request DELETE \
+  --url http://localhost:8000/api/snippets/2 
+{"message":"snippet deleted"}
+```
