@@ -129,9 +129,9 @@ pub fn main() -> Nil {
 }
 ```
 
-### Generating Data Layer
+### Generating SQL Query
 
-If you have made a REST API before, you must know by now that the next step is creating the data/model layer. We can write that by hand using Pog, but we're not going to manually write the query and decoder in the big 2026. We're going to use parrot to generate wrapper for our query.
+The next step in our project is writing SQL queries. We can write that by hand using Pog, but we're not going to manually write the query and decoder. We're going to use parrot to generate wrapper for our query.
 
 Install parrot: `gleam add parrot` . Then create `sql` directory inside `server/src/`. Create `snippets.sql` inside it and write:
 
@@ -139,25 +139,25 @@ Install parrot: `gleam add parrot` . Then create `sql` directory inside `server/
 -- server/src/sql/snippet.sql
 
 -- name: CreateSnippet :exec
-insert into snippets (author, title, content, expires_at, updated_at, created_at)
-values ($1, $2, $3, $4, $5, $6);
+INSERT INTO snippets (author, title, content, expires_at, updated_at, created_at)
+VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: GetSnippets :many
-select id, author, title, content, expires_at, updated_at, created_at from snippets
-limit $1 offset $2;
+SELECT id, author, title, content, version, expires_at, updated_at, created_at from snippets
+LIMIT $1 OFFSET $2;
 
 -- name: GetSnippet :one
-select id, author, title, content, expires_at, updated_at, created_at
-from snippets
-where id = $1;
+SELECT id, author, title, content, version, expires_at, updated_at, created_at
+FROM snippets
+WHERE id = $1;
 
 -- name: UpdateSnippet :exec
 UPDATE snippets
-SET title = COALESCE(sqlc.narg('title'), title), content = COALESCE(sqlc.narg('content'), content)
-WHERE id = $1;
+SET title = $1, content = $2, version = version + 1
+WHERE id = $3 AND version = $4;
 
 -- name: DeleteSnippet :exec
-delete from snippets where id = $1;
+DELETE FROM snippets WHERE id = $1;
 ```
 
 Then run `gleam run -m parrot`. It'll create `sql.gleam` file inside `server/src/` . We don't need to edit anything in that file. Next we're going to make a wrapper for parrot and pog. Inside `server/src/server` directory, create `db.gleam`\` and write:

@@ -413,11 +413,17 @@ pub fn update_snippet(
   content: option.Option(String),
   id: Int,
 ) {
+  use old_snippet <- result.try(get_snippet(ctx, id))
+
   case title, content {
     option.None, option.None ->
       Error(errors.BadRequest("missing title and content"))
-    _, _ -> { // match all other case
-      sql.update_snippet(id, title, content)
+    option.None, option.Some(content) ->
+      sql.update_snippet(old_snippet.title, content, id, old_snippet.version)
+      |> db.exec(ctx.db, _)
+      |> result.map_error(errors.DatabaseError)
+    option.Some(title), _ -> {
+      sql.update_snippet(title, old_snippet.content, id, old_snippet.version)
       |> db.exec(ctx.db, _)
       |> result.map_error(errors.DatabaseError)
     }
